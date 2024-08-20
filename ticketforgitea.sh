@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script is used to manage github tickets in a project
-ttik() {
+ticketforgitea() {
     check_yes_no_internal() {
     while true; do
         sleep 0.1
@@ -23,7 +23,7 @@ ttik() {
     done
 }
     show_help() {
-        echo "ttik"
+        echo "ticketforgitea"
         echo "Checks and changes the status of tickets on github"
         echo "The tickets will be checked in the current directory's git repo"
         echo ""
@@ -282,15 +282,15 @@ ttik() {
     
     # full status options are the columns, Assign, Jump to branch, Close issue
     # light status options are only sprint backlog and in progress
-    status_options="none;Assign\nnone;Jump to branch\nnone"
+    full_status_options="none;Assign\nnone;Jump to branch\nnone"
     if [ "$issue_state" != "CLOSED" ] && [ "$issue_state" != "closed" ] && [ "$issue_state" != "Closed" ]; then
-        status_options="$status_options\nnone;Close issue"
+        full_status_options="$full_status_options\nnone;Close issue"
     fi
     while IFS= read -r col; do
         col_name=$(echo "$col" | cut -d ',' -f 1)
         col_id=$(echo "$col" | cut -d ',' -f 2)
         if [ "$col_name" != "$current_column" ]; then
-            status_options="$status_options\n$col_id;$col_name"
+            full_status_options="$full_status_options\n$col_id;$col_name"
         fi
     done <<< "$combined_cols"
     
@@ -307,7 +307,9 @@ ttik() {
         fi
     done <<< "$combined_cols"
 
-    if [ "$all_options" = false ]; then
+    if [ "$all_options" = true ]; then
+        status_options="$full_status_options"
+    else
         status_options="$light_status_options"
     fi
 

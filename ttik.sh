@@ -367,7 +367,6 @@ ttik() {
         git checkout $branch_name
         return 0
     #  let the user choose the assignees
-    #TODO: need to fix
     elif [ "$status" == "Assign" ]; then
         all_people=$(curl -s -k 'GET' \
             'https://'"$repo_url"'/api/v1/repos/'"$repo_owner"'/'"$repo_name"'/assignees' \

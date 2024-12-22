@@ -116,9 +116,12 @@ ticketforjira() {
         esac
     done
 
-    # my email
     # TODO: use the email switching script if it exists
-    JIRA_EMAIL=$(git config user.email)
+    if [ -n "$(command -v setdynamicgitemail)" ]; then
+        JIRA_EMAIL=$(setdynamicgitemail)
+    else
+        JIRA_EMAIL=$(git config user.email)
+    fi
     # api token
     JIRA_API_TOKEN=$(pass jiraapi)
     # get the repo owner
@@ -429,7 +432,6 @@ null    null    Assign"
     # let the user choose the status
     #
     status=$(printf '%s\n' "${actions[@]}" | fzf --with-nth=3..)
-    # TODO: rm print statement
     status_id=$(echo "$status" | awk -F '    ' '{print $1}')
     status_name=$(echo "$status" | awk -F '    ' '{print $3}')
 

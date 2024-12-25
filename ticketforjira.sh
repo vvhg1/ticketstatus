@@ -297,7 +297,7 @@ ticketforjira() {
         echo "No issue selected"
         return 0
     fi
-    issue_num=${issuei%% *}
+    issue_num=$(echo "$issuei" | awk '{$1=$1};1' | awk '{print $1}')
 
     # print the issue, first we get the full issue
     issues_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num"
@@ -395,7 +395,7 @@ ticketforjira() {
 
     # echo "response: $response"
     # get the transitions
-    transitions=$(echo "$response" | jq -r '.transitions[] | "\(.id)\t\(.to.statusCategory.id)\t\(.name)"')
+    transitions=$(echo "$response" | jq -r '.transitions[] | "\(.id)    \(.to.statusCategory.id)    \(.name)"')
     actions=$transitions
     # Append additional options to the actions list
     # substitute Closed/closed/CLOSED with Close issue
@@ -416,7 +416,7 @@ null    null    Assign"
     # let the user choose the status
     #
     status=$(printf '%s\n' "${actions[@]}" | fzf --with-nth=3..)
-    status_id=$(echo "$status" | awk -F '    ' '{print $1}')
+    status_id=$(echo "$status" | awk '{print $1}')
     status_name=$(echo "$status" | awk -F '    ' '{print $3}')
 
     if [ "$status_name" == "$full_issue_status" ]; then
@@ -479,15 +479,15 @@ null    null    Assign"
         else
             line_number=$(echo "$people_names" | grep -n "$assignee" | cut -d ":" -f 1)
             if [[ -n "$line_number" ]]; then
-                matched_assignee_index=$((line_number - 1))
+                matched_assignee_index=$((line_number))
                 assignee_id=$(echo "$people_ids" | head -n $matched_assignee_index | tail -n 1)
                 # TODO: rm print statement
                 echo "Assigning $assignee with id $assignee_id to $full_issue_key"
                 return 0
                 # TODO: untested
+                assign_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/assignee"
                 response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-                        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
-                        assign_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/assignee"
+                    -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
                     -H "Accept: application/json" \
                     -H "Content-Type: application/json" \
                     -d "{\"accountId\":\"$assignee_id\"}" \

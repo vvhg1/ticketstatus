@@ -418,9 +418,6 @@ null    null    Assign"
         check_yes_no_internal "Close issue $full_issue_key? [Y/n]: "
         # TODO: rm print statement
         echo "Closing issue $full_issue_key"
-        # TODO: rm print statement
-        echo "status_id: $status_id"
-        return 0
         # TODO: untested
         transit_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
         response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
@@ -474,10 +471,9 @@ null    null    Assign"
             if [[ -n "$line_number" ]]; then
                 matched_assignee_index=$((line_number))
                 assignee_id=$(echo "$people_ids" | head -n $matched_assignee_index | tail -n 1)
-                # TODO: rm print statement
-                echo "Assigning $assignee with id $assignee_id to $full_issue_key"
-                return 0
-                # TODO: untested
+
+                # echo "Assigning $assignee with id $assignee_id to $full_issue_key"
+
                 assign_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/assignee"
                 response=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
                     -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
@@ -522,9 +518,6 @@ null    null    Assign"
         branch_name=$branch_prefix$branch_name
         # convert to lowercase
         branch_name=${branch_name,,}
-        echo "branch_name: $branch_name"
-        return 0
-        # TODO: untested but should work
         # check if branch exists
         if [ -z "$(git branch --list | grep " $branch_name"$)" ]; then
             if check_yes_no_internal "It's dangerous to go alone! Take a branch with you? [Y/n]: "; then
@@ -560,9 +553,8 @@ null    null    Assign"
         fi
     fi
     # move the ticket to the new status
-    echo "moving ticket to $status_name"
-    return 0
-    # TODO: untested
+    echo "moving ticket $issue_num to $status_name"
+    echo "status_id: $status_id"
     transit_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
     response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
         -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \

@@ -123,12 +123,12 @@ ticketforjira() {
     fi
     jira_email=$(git config user.email)
     # api token
-    JIRA_API_TOKEN=$(pass jiraapi)
+    jira_api_token=$(pass jiraapi)
     # get the repo owner
     gh_name=$(git remote get-url origin | sed -e 's/.*github.com\///' -e 's/\/.*//')
     gh_name=${gh_name#*:}
     # get the name up to the first dash
-    REPOOWNER=${gh_name%%-*}
+    repo_owner=${gh_name%%-*}
     # get the repo name from path
     repo_name=$(basename $(git rev-parse --show-toplevel))
     # WARN: this is a hack, we should get the prefix from the issue? Maybe the labels?
@@ -136,12 +136,12 @@ ticketforjira() {
     repo_name="AI-$repo_name"
     project_name=${repo_name%%-*}
 
-    URL="https://${REPOOWNER}.atlassian.net/rest/api/3/project/search"
+    rpojects_url="https://${repo_owner}.atlassian.net/rest/api/3/project/search"
     # Fetch project overview
     response=$(curl -s -X GET \
-        -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
-        "$URL")
+        "$rpojects_url")
 
     # echo "response: $response"
     # Check if the response is valid
@@ -173,11 +173,11 @@ ticketforjira() {
     # get the project id
     project_id=$(echo "$response" | jq -r '.values['$matched_project_index'] | .id')
 
-    BOARDS_URL="https://${REPOOWNER}.atlassian.net/rest/agile/1.0/board"
+    boards_url="https://${repo_owner}.atlassian.net/rest/agile/1.0/board"
     bresponse=$(curl -s -X GET \
-        -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
-        "$BOARDS_URL")
+        "$boards_url")
 
     # Check if the response is valid
     if [[ -z "$bresponse" ]]; then
@@ -188,11 +188,11 @@ ticketforjira() {
     board_id=$(echo "$bresponse" | jq -r '.values[] | select(.location.projectId == '$project_id') | .id')
 
     # get the board columns
-    COLUMNS_URL="https://${REPOOWNER}.atlassian.net/rest/agile/1.0/board/$board_id/configuration"
+    columns_urL="https://${repo_owner}.atlassian.net/rest/agile/1.0/board/$board_id/configuration"
     columns_response=$(curl -s -X GET \
-        -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
-        "$COLUMNS_URL")
+        "$columns_urL")
 
     # Check if the response is valid
     if [[ -z "$columns_response" ]]; then
@@ -204,11 +204,11 @@ ticketforjira() {
     columns_ids=$(echo "$columns_response" | jq -r '.columnConfig.columns[] | .statuses[0].id')
 
     # get the people on the project
-    PEOPLE_URL="https://${REPOOWNER}.atlassian.net/rest/api/3/user/assignable/search?project=$project_id&startAt=0&maxResults=50"
+    people_url="https://${repo_owner}.atlassian.net/rest/api/3/user/assignable/search?project=$project_id&startAt=0&maxResults=50"
     people_response=$(curl -s -X GET \
-        -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
-        "$PEOPLE_URL")
+        "$people_url")
 
     # Check if the response is valid
     if [[ -z "$people_response" ]]; then
@@ -220,14 +220,14 @@ ticketforjira() {
     people_ids=$(echo "$people_response" | jq -r '.[] | .accountId')
 
     # get the issues
-    ISSUES_URL="https://${REPOOWNER}.atlassian.net/rest/agile/1.0/board/$board_id/issue"
+    issues_url="https://${repo_owner}.atlassian.net/rest/agile/1.0/board/$board_id/issue"
     # WARN: hardcoded maxResults
     maxResults=500
     fields="id,key,summary,status,assignee,created,issuetype,labels,parent,sprint"
     issues_response=$(curl -s -X GET \
-        -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
-        "$ISSUES_URL?startAt=0&maxResults=$maxResults&fields=$fields")
+        "$issues_url?startAt=0&maxResults=$maxResults&fields=$fields")
 
     # Check if the response is valid
     if [[ -z "$issues_response" ]]; then
@@ -316,11 +316,11 @@ ticketforjira() {
     issue_num=${issuei%% *}
 
     # print the issue, first we get the full issue
-    ISSUES_URL="https://${REPOOWNER}.atlassian.net/rest/api/3/issue/$issue_num"
+    issues_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num"
     full_issue=$(curl -s -X GET \
-        -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
-        "$ISSUES_URL")
+        "$issues_url")
 
     # Check if the response is valid
     if [[ -z "$full_issue" ]]; then
@@ -397,11 +397,11 @@ ticketforjira() {
     fi
     # status options:
     # actions should be the possible transitions
-    URL="https://${REPOOWNER}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
+    transitions_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
     response=$(curl -s -X GET \
-        -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
-        "$URL")
+        "$transitions_url")
 
     # Check if the response is valid
     if [[ -z "$response" ]]; then
@@ -446,12 +446,12 @@ null    null    Assign"
         echo "status_id: $status_id"
         return 0
         # TODO: untested
-        URL="https://${REPOOWNER}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
+        transit_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
         response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+            -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
             -H "Accept: application/json" \
             -d "{\"transition\":{\"id\":\"$status_id\"}}" \
-            "$URL")
+            "$transit_url")
         # check if the response is 204
         if [ "$response" == "204" ]; then
             echo "Closed $full_issue_key"
@@ -501,13 +501,13 @@ null    null    Assign"
                 echo "Assigning $assignee with id $assignee_id to $full_issue_key"
                 return 0
                 # TODO: untested
-                URL="https://${REPOOWNER}.atlassian.net/rest/api/3/issue/$issue_num/assignee"
                 response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-                    -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+                        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
+                        assign_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/assignee"
                     -H "Accept: application/json" \
                     -H "Content-Type: application/json" \
                     -d "{\"accountId\":\"$assignee_id\"}" \
-                    "$URL")
+                    "$assign_url")
                 # check if the response is 204
                 if [ "$response" == "204" ]; then
                     echo "Assigned $assignee to $full_issue_key"
@@ -586,12 +586,12 @@ null    null    Assign"
     echo "moving ticket to $status_name"
     return 0
     # TODO: untested
-    URL="https://${REPOOWNER}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
+    transit_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
     response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-        -H "Authorization: Basic $(echo -n "$JIRA_EMAIL:$JIRA_API_TOKEN" | base64)" \
+        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
         -d "{\"transition\":{\"id\":\"$status_id\"}}" \
-        "$URL")
+        "$Utransit_urlRL")
     # check if the response is 204
     if [ "$response" == "204" ]; then
         echo "Moved $full_issue_key to $status_name"

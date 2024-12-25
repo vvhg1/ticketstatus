@@ -116,12 +116,12 @@ ticketforjira() {
         esac
     done
 
-    # TODO: use the email switching script if it exists
+    # NOTE: use the email switching script if it exists so that the email is set before we call this
     if [ -n "$(command -v setdynamicgitemail)" ]; then
-        JIRA_EMAIL=$(setdynamicgitemail)
-    else
-        JIRA_EMAIL=$(git config user.email)
+        setdynamicgitemail
+
     fi
+    jira_email=$(git config user.email)
     # api token
     JIRA_API_TOKEN=$(pass jiraapi)
     # get the repo owner

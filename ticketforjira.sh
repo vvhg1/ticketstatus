@@ -159,12 +159,12 @@ ticketforjira() {
         return 1
     fi
     # search for the project in the keys, keys are one per line, we need to subtract 1 from the line number
-    line_number=$(echo "$keys" | grep -n "$project_name" | cut -d ":" -f 1)
+    line_number=$(echo "$keys" | grep -i -n "$project_name" | cut -d ":" -f 1)
     # Subtract 1 from the line number
     if [[ -n "$line_number" ]]; then
         matched_project_index=$((line_number - 1))
     fi
-    matched_project=$(echo "$keys" | grep "$project_name")
+    matched_project=$(echo "$keys" | grep -i "$project_name")
     if [ -z "$matched_project" ]; then
         echo "Project '$project_name' not found"
         return 1
@@ -465,7 +465,7 @@ null    null    Assign"
         branches="$(compgen -F __git_wrap_git_checkout 2>/dev/null | grep -vE 'HEAD|origin/*|FETCH_HEAD|ORIG_HEAD')"
         branches="$(echo "$branches" | sort -u)"
         branches="$(echo "$branches" | sed 's/^/  /')"
-        branch_name="$(echo "$branches" | grep $full_issue_key)"
+        branch_name="$(echo "$branches" | grep -i $full_issue_key)"
         if [ -z "$branch_name" ]; then
             echo "No branch $branch_name found"
             return 0

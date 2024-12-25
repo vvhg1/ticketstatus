@@ -316,46 +316,50 @@ ticketforjira() {
     full_issue_key=$(echo "$full_issue" | jq -r '.key')
     full_issue_summary=$(echo "$full_issue" | jq -r '.fields.summary')
     full_issue_status=$(echo "$full_issue" | jq -r '.fields.status.name')
-    full_issue_assignee=$(echo "$full_issue" | jq -r '.fields.assignee.displayName')
+    full_issue_assignee=$(echo "$full_issue" | jq -r '.fields.assignee.displayName // "-"')
     full_issue_created=$(echo "$full_issue" | jq -r '.fields.created')
     full_issue_issuetype=$(echo "$full_issue" | jq -r '.fields.issuetype.name')
     # we need to get the labels into one line
     full_issue_labels=$(echo "$full_issue" | jq -r '.fields.labels[]' | tr '\n' ' ')
-    full_issue_parent=$(echo "$full_issue" | jq -r '.fields.parent.key')
+    full_issue_parent=$(echo "$full_issue" | jq -r '.fields.parent.key // "-"')
     full_issue_description=$(echo "$full_issue" | jq -r '.fields.description')
-    full_issue_children=$(echo "$full_issue" | jq -r '.fields.subtasks[].key')
+    full_issue_children=$(echo "$full_issue" | jq -r '.fields.subtasks[].key // "-"')
 
     # Process the JSON with jq
-    formatted_text=$(echo "$full_issue_description" | jq -r '
-        def process_node(content; indent):
-            if .type == "paragraph" then
-                .content[] |
-                    if .type == "text" then
-                        .text
-                    elif .type == "inlineCard" then
-                        "[URL: \(.attrs.url)]"
-                    elif .type == "hardBreak" then
-                        "\n"
-                    elif .type == "inlineCard" then
-                        "[URL: \(.attrs.url)]"
-                    else
+    if [ "$full_issue_description" == "null" ]; then
+        formatted_text="No description available"
+    else
+        formatted_text=$(echo "$full_issue_description" | jq -r '
+            def process_node(content; indent):
+                if .type == "paragraph" then
+                    .content[] |
+                        if .type == "text" then
+                            .text
+                        elif .type == "inlineCard" then
+                            "[URL: \(.attrs.url)]"
+                        elif .type == "hardBreak" then
+                            "\n"
+                        elif .type == "inlineCard" then
+                            "[URL: \(.attrs.url)]"
+                        else
+                            ""
+                        end
+                elif .type == "heading" then
+                    ("#" * (.attrs.level)) + " " + (.content[0].text)
+                elif .type == "orderedList" then
+                    (.attrs.order // indent) as $indent |
+                    .content[] | 
+                    ("    " * ($indent)) + "* "+ process_node(.content; 0)
+                elif .type == "listItem" then
+                    .content[] |
+                    process_node(.content; 0)
+                else
                         ""
-                    end
-            elif .type == "heading" then
-                ("#" * (.attrs.level)) + " " + (.content[0].text)
-            elif .type == "orderedList" then
-                (.attrs.order // indent) as $indent |
-                .content[] | 
-                ("    " * ($indent)) + "* "+ process_node(.content; 0)
-            elif .type == "listItem" then
-                .content[] |
-                process_node(.content; 0)
-            else
-                    ""
-            end;
-        .content[] |
-        process_node(.content; 0)
-    ')
+                end;
+            .content[] |
+            process_node(.content; 0)
+       ')
+    fi
     # Output the formatted text
     printf "\033[1;31m$full_issue_key\033[0m - $full_issue_summary\n"
     printf "\33[1m\nStatus: $full_issue_status\n\n\33[0m"
@@ -363,22 +367,10 @@ ticketforjira() {
     printf '%s\n' "Assignee: $full_issue_assignee"
     printf '%s\n' "Issue Type: $full_issue_issuetype"
     printf '%s\n' "Labels: $full_issue_labels"
-    if [[ -n "$full_issue_parent" ]]; then
-        printf '%s\n' "Parent: $full_issue_parent"
-    else
-        printf '%s\n' "Parent: -"
-    fi
-    if [[ -n "$full_issue_children" ]]; then
-        printf "Children:\n$full_issue_children"
-    else
-        printf "Children: -\n"
-    fi
+    printf '%s\n' "Parent: $full_issue_parent"
+    printf "Children:\n$full_issue_children"
     printf "\033[1;31m\nDescription:\033[0m\n"
-    if [[ -n "$formatted_text" ]]; then
-        echo -e "$formatted_text"
-    else
-        echo -e "No description available"
-    fi
+    echo -e "$formatted_text"
     # status options:
     # actions should be the possible transitions
     transitions_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/transitions"

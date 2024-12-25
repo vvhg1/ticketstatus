@@ -274,22 +274,6 @@ ticketforjira() {
     }
 }')
 
-    # # truncate the summary
-    # while read -r line; do
-    #     summary=$(echo "$line" | awk -F '\t' '{print $3}')
-    #     if [ "${#summary}" -gt "$max_summary_length" ]; then
-    #         short_summary=$(echo "$summary" | cut -c1-$max_summary_length)
-    #         short_summary="$short_summary..."
-    #         new_line=$(echo "$line" | awk -F '\t' '{print $1"\t"$2}')
-    #         new_line="$new_line"$'\t'"$short_summary"$'\t'
-    #         new_line="$new_line"$(echo "$line" | awk -F '\t' '{print $4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10}')
-
-    #         formatted_issues="$formatted_issues$new_line"$'\n'
-    #     else
-    #         formatted_issues="$formatted_issues$line"$'\n'
-    #     fi
-    # done <<<"$clean_issues"
-
     # sort and column
     input_header=$(printf '%s\n' "${formatted_issues[@]}" | column -s$'\t' -t | head -n 1 | sed -E 's/^[^[:space:]]+[[:space:]]+//')
 

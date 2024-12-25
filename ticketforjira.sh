@@ -1,6 +1,10 @@
 #!/bin/bash
 
-# This script is used to manage github tickets in a project
+# This script is used to manage jira tickets in a project
+# prerequisites:
+# the rep name must start with the project prefix
+# labels for branch types are:
+# hotfix, bugfix, test, feature
 ticketforjira() {
     check_yes_no_internal() {
         while true; do
@@ -416,9 +420,6 @@ null    null    Assign"
         return 0
     elif [ "$status_name" == "Close issue" ]; then
         check_yes_no_internal "Close issue $full_issue_key? [Y/n]: "
-        # TODO: rm print statement
-        echo "Closing issue $full_issue_key"
-        # TODO: untested
         transit_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
         response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
             -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
@@ -512,10 +513,21 @@ null    null    Assign"
         branch_name=${branch_name// /-}
         # remove all non-alphanumeric characters
         branch_name=${branch_name//[^a-zA-Z0-9-]/}
-        # TODO: this is a hack, we should get the prefix from the issue? Maybe the labels?
-        branch_prefix="feature/"
+        # check if feature hotfix bugfix or test are in the labels
+        if [ "$(echo "$full_issue_labels" | grep -i "feature")" != "" ]; then
+            branch_type="feature/"
+        elif [ "$(echo "$full_issue_labels" | grep -i "hotfix")" != "" ]; then
+            branch_type="hotfix/"
+        elif [ "$(echo "$full_issue_labels" | grep -i "bugfix")" != "" ]; then
+            branch_type="bugfix/"
+        elif [ "$(echo "$full_issue_labels" | grep -i "test")" != "" ]; then
+            branch_type="test/"
+        else
+            branch_type=""
+        fi
+
         # add the prefix
-        branch_name=$branch_prefix$branch_name
+        branch_name=$branch_type$branch_name
         # convert to lowercase
         branch_name=${branch_name,,}
         # check if branch exists
@@ -553,15 +565,13 @@ null    null    Assign"
         fi
     fi
     # move the ticket to the new status
-    echo "moving ticket $issue_num to $status_name"
-    echo "status_id: $status_id"
     transit_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
     response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
         -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
         -H "Content-Type: application/json" \
         -d "{\"transition\":{\"id\":\"$status_id\"}}" \
-        "$Utransit_urlRL")
+        "$transit_url")
     # check if the response is 204
     if [ "$response" == "204" ]; then
         echo "Moved $full_issue_key to $status_name"

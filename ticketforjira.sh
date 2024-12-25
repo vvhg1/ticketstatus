@@ -133,7 +133,7 @@ ticketforjira() {
     repo_name=$(basename $(git rev-parse --show-toplevel))
     # WARN: this is a hack, we should get the prefix from the issue? Maybe the labels?
     # repo name should start with AI but doesn't, lets pretend it does
-    repo_name="AI-$repo_name"
+    # repo_name="AI-$repo_name"
     project_name=${repo_name%%-*}
 
     rpojects_url="https://${repo_owner}.atlassian.net/rest/api/3/project/search"

@@ -434,6 +434,7 @@ null    null    Assign"
         response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
             -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
             -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
             -d "{\"transition\":{\"id\":\"$status_id\"}}" \
             "$transit_url")
         # check if the response is 204
@@ -486,7 +487,7 @@ null    null    Assign"
                 return 0
                 # TODO: untested
                 assign_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/assignee"
-                response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+                response=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
                     -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
                     -H "Accept: application/json" \
                     -H "Content-Type: application/json" \
@@ -574,6 +575,7 @@ null    null    Assign"
     response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
         -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
+        -H "Content-Type: application/json" \
         -d "{\"transition\":{\"id\":\"$status_id\"}}" \
         "$Utransit_urlRL")
     # check if the response is 204

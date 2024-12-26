@@ -51,6 +51,74 @@ ticketforjira() {
         echo "The ticket can be assigned to a user, @me will assign it to you"
         return 0
     }
+    print_issue() {
+
+        # print step by step
+        full_issue_key=$(echo "$full_issue" | jq -r '.key')
+        full_issue_summary=$(echo "$full_issue" | jq -r '.fields.summary')
+        full_issue_status=$(echo "$full_issue" | jq -r '.fields.status.name')
+        full_issue_assignee=$(echo "$full_issue" | jq -r '.fields.assignee.displayName // "-"')
+        full_issue_created=$(echo "$full_issue" | jq -r '.fields.created')
+        full_issue_issuetype=$(echo "$full_issue" | jq -r '.fields.issuetype.name')
+        # we need to get the labels into one line
+        full_issue_labels=$(echo "$full_issue" | jq -r '.fields.labels[]' | tr '\n' ' ')
+        full_issue_parent=$(echo "$full_issue" | jq -r 'if .fields.parent == null then
+    "-"
+  else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(.fields.parent.fields.status.name)" end')
+        full_issue_description=$(echo "$full_issue" | jq -r '.fields.description')
+        full_issue_children=$(echo "$full_issue" | jq -r '.fields.subtasks[] | "\(.key)\t\(.fields.summary)\t\(.fields.status.name)"')
+
+        # Process the JSON with jq
+        if [ "$full_issue_description" == "null" ]; then
+            formatted_text="No description available\n"
+        else
+            formatted_text=$(echo "$full_issue_description" | jq -r '
+            def process_node(content; indent):
+                if .type == "paragraph" then
+                    .content[] |
+                        if .type == "text" then
+                            .text
+                        elif .type == "inlineCard" then
+                            "[URL: \(.attrs.url)]"
+                        elif .type == "hardBreak" then
+                            "\n"
+                        elif .type == "inlineCard" then
+                            "[URL: \(.attrs.url)]"
+                        else
+                            ""
+                        end
+                elif .type == "heading" then
+                    ("#" * (.attrs.level)) + " " + (.content[0].text)
+                elif .type == "orderedList" then
+                    (.attrs.order // indent) as $indent |
+                    .content[] | 
+                    ("    " * ($indent)) + "* "+ process_node(.content; 0)
+                elif .type == "listItem" then
+                    .content[] |
+                    process_node(.content; 0)
+                else
+                        ""
+                end;
+            .content[] |
+            process_node(.content; 0)
+       ')
+        fi
+        # Output the formatted text
+        printf "\033[1;31m$full_issue_key\033[0m - $full_issue_summary\n"
+        printf "\33[1m\nStatus: $full_issue_status\n\n\33[0m"
+        printf '%s\n' "Created: $full_issue_created"
+        printf '%s\n' "Assignee: $full_issue_assignee"
+        printf '%s\n' "Issue Type: $full_issue_issuetype"
+        printf '%s\n' "Labels: $full_issue_labels"
+        printf '%s\n' "Parent: $full_issue_parent"
+        if [ "$full_issue_children" == "" ]; then
+            printf "Children: -"
+        else
+            printf "Children:\n$full_issue_children"
+        fi
+        printf "\n\033[1;31m\nDescription:\033[0m\n"
+        printf "$formatted_text"
+    }
     show_all=false
     only_list=false
     for arg in "$@"; do
@@ -260,7 +328,6 @@ ticketforjira() {
     clean_issues=$(echo "$clean_issues" | sed -E 's`(.*)[0-9]{2}([0-9]{2}-[0-9]{2}-[0-9]{2})T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}[\+-]{1}[0-9]{4}(.*)`\1\2\3`')
     header="Id"$'\t'"Key"$'\t'"Summary"$'\t'"Status"$'\t'"Assignee"$'\t'"Created"$'\t'"Issue Type"$'\t'"Labels"$'\t'"Parent"
     # add the header
-    formatted_issues="$header"$'\n'
     clean_issues="$header
     $clean_issues"
     formatted_issues=$(echo "$clean_issues" | awk -F '\t' -v maxlen="$max_summary_length" '
@@ -316,65 +383,7 @@ ticketforjira() {
         return 1
     fi
 
-    # print step by step
-    full_issue_key=$(echo "$full_issue" | jq -r '.key')
-    full_issue_summary=$(echo "$full_issue" | jq -r '.fields.summary')
-    full_issue_status=$(echo "$full_issue" | jq -r '.fields.status.name')
-    full_issue_assignee=$(echo "$full_issue" | jq -r '.fields.assignee.displayName // "-"')
-    full_issue_created=$(echo "$full_issue" | jq -r '.fields.created')
-    full_issue_issuetype=$(echo "$full_issue" | jq -r '.fields.issuetype.name')
-    # we need to get the labels into one line
-    full_issue_labels=$(echo "$full_issue" | jq -r '.fields.labels[]' | tr '\n' ' ')
-    full_issue_parent=$(echo "$full_issue" | jq -r '.fields.parent.key // "-"')
-    full_issue_description=$(echo "$full_issue" | jq -r '.fields.description')
-    full_issue_children=$(echo "$full_issue" | jq -r '.fields.subtasks[].key // "-"')
-
-    # Process the JSON with jq
-    if [ "$full_issue_description" == "null" ]; then
-        formatted_text="No description available"
-    else
-        formatted_text=$(echo "$full_issue_description" | jq -r '
-            def process_node(content; indent):
-                if .type == "paragraph" then
-                    .content[] |
-                        if .type == "text" then
-                            .text
-                        elif .type == "inlineCard" then
-                            "[URL: \(.attrs.url)]"
-                        elif .type == "hardBreak" then
-                            "\n"
-                        elif .type == "inlineCard" then
-                            "[URL: \(.attrs.url)]"
-                        else
-                            ""
-                        end
-                elif .type == "heading" then
-                    ("#" * (.attrs.level)) + " " + (.content[0].text)
-                elif .type == "orderedList" then
-                    (.attrs.order // indent) as $indent |
-                    .content[] | 
-                    ("    " * ($indent)) + "* "+ process_node(.content; 0)
-                elif .type == "listItem" then
-                    .content[] |
-                    process_node(.content; 0)
-                else
-                        ""
-                end;
-            .content[] |
-            process_node(.content; 0)
-       ')
-    fi
-    # Output the formatted text
-    printf "\033[1;31m$full_issue_key\033[0m - $full_issue_summary\n"
-    printf "\33[1m\nStatus: $full_issue_status\n\n\33[0m"
-    printf '%s\n' "Created: $full_issue_created"
-    printf '%s\n' "Assignee: $full_issue_assignee"
-    printf '%s\n' "Issue Type: $full_issue_issuetype"
-    printf '%s\n' "Labels: $full_issue_labels"
-    printf '%s\n' "Parent: $full_issue_parent"
-    printf "Children:\n$full_issue_children"
-    printf "\033[1;31m\nDescription:\033[0m\n"
-    echo -e "$formatted_text"
+    print_issue "$full_issue"
     # status options:
     # actions should be the possible transitions
     transitions_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num/transitions"
@@ -392,13 +401,25 @@ ticketforjira() {
     # echo "response: $response"
     # get the transitions
     transitions=$(echo "$response" | jq -r '.transitions[] | "\(.id)    \(.to.statusCategory.id)    \(.name)"')
-    actions=$transitions
+    # actions=$transitions
     # Append additional options to the actions list
     # substitute Closed/closed/CLOSED with Close issue
-    actions=$(echo "$actions" | sed 's/Closed/Close issue/g' | sed 's/closed/Close issue/g' | sed 's/CLOSED/Close issue/g')
-    actions+="
+    transitions=$(echo "$transitions" | sed 's/Closed/Close issue/g' | sed 's/closed/Close issue/g' | sed 's/CLOSED/Close issue/g')
+    echo "full_issue_children: $full_issue_children"
+    transitions+="
 null    null    Jump to branch
 null    null    Assign"
+    actions=$transitions
+    if [ "$full_issue_children" != "-" ]; then
+        echo "adding subtasks"
+        actions+="
+null    null    Show subtasks"
+    fi
+    if [ "$full_issue_parent" != "-" ]; then
+        echo "adding parent"
+        actions+="
+null    null    Show parent"
+    fi
     # Close and the columns
     # two possibilities:
     # 1. show all options
@@ -415,6 +436,88 @@ null    null    Assign"
     status_id=$(echo "$status" | awk '{print $1}')
     status_name=$(echo "$status" | awk -F '    ' '{print $3}')
 
+    if [ "$status_name" == "Show subtasks" ]; then
+        # we filter the tickets for parent == full_issue_key, no need to curl as we already have the issues
+        if [ "$only_current" = true ]; then
+            # clean issues filtered for current sprint
+            issue_subtasks=$(echo "$issues_response" | jq -r '.issues[] | select(.fields.sprint != null) | select(.fields.parent.key == "'$full_issue_key'") | "\(.id)\t\(.key)\t\(.fields.summary)\t\(.fields.status.name)\t\(.fields.assignee.displayName)\t\(.fields.created)\t\(.fields.issuetype.name)\t\(.fields.labels)\t\(.fields.parent.key)"')
+        else
+            issue_subtasks=$(echo "$issues_response" | jq -r '.issues[] | select(.fields.parent.key == "'$full_issue_key'") | "\(.id)\t\(.key)\t\(.fields.summary)\t\(.fields.status.name)\t\(.fields.assignee.displayName)\t\(.fields.created)\t\(.fields.issuetype.name)\t\(.fields.labels)\t\(.fields.parent.key)"')
+        fi
+        # clean up the missing fields
+        issue_subtasks=$(echo "$issue_subtasks" | sed 's`\[\]`-`g' | sed 's`null`-`g' | sed 's`\[``g' | sed 's`\]``g')
+        # format the date
+        issue_subtasks=$(echo "$issue_subtasks" | sed -E 's`(.*)[0-9]{2}([0-9]{2}-[0-9]{2}-[0-9]{2})T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}[\+-]{1}[0-9]{4}(.*)`\1\2\3`')
+        header="Id"$'\t'"Key"$'\t'"Summary"$'\t'"Status"$'\t'"Assignee"$'\t'"Created"$'\t'"Issue Type"$'\t'"Labels"$'\t'"Parent"
+        # add the header
+        issue_subtasks="$header
+            $issue_subtasks"
+        formatted_issues=$(echo "$issue_subtasks" | awk -F '\t' -v maxlen="$max_summary_length" '
+            {
+            summary = $3
+            if (length(summary) > maxlen) {
+                short_summary = substr(summary, 1, maxlen) "..."
+                # Reconstruct the line with the truncated summary
+                printf "%s\t%s\t%s", $1, $2, short_summary
+                for (i = 4; i <= NF; i++) printf "\t%s", $i
+                printf "\n"
+            } else {
+                # Print the line as is
+                print
+            }
+            }')
+
+        # sort and column
+        input_header=$(printf '%s\n' "${formatted_issues[@]}" | column -s$'\t' -t | head -n 1 | sed -E 's/^[^[:space:]]+[[:space:]]+//')
+
+        if [ "$show_all" = true ]; then
+            # show the 5th column (status)
+            issuei="$(printf '%s\n' "$formatted_issues" | tail -n +2 | sort -t '\t' -k 3 -r | column -s$'\t' -t | fzf --header="$input_header" --with-nth=2..)"
+        else
+            # TODO: make this more robust
+            issuei="$(printf '%s\n' "${formatted_issues[@]}" | tail -n +2 | sort -t '\t' -k 2 -r | awk -F '\t' '$4 != "Done" && $4 != "done" && $4 != "Closed" && $4 != "closed"' | column -s$'\t' -t | fzf --header="$input_header" --with-nth=2..)"
+        fi
+        if [ -z "$issuei" ]; then
+            echo "No issue selected"
+            return 0
+        fi
+        echo "issuei: $issuei"
+        issue_num=$(echo "$issuei" | awk '{$1=$1};1' | awk '{print $1}')
+        echo "issue_num: $issue_num"
+        full_issue_status=$(echo "$issuei" | awk -F '  ' '{print $10}')
+        echo "full_issue_status: $full_issue_status"
+        full_issue_children=$(echo "$issuei" | awk -F '  ' '{print $11}')
+        echo "full_issue_children: $full_issue_children"
+        #TODO: make func to print issue
+        echo -e "\n\033[1;31m\n###############################\033[0m\n"
+        # print the issue, first we get the full issue
+        issues_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num"
+        full_issue=$(curl -s -X GET \
+            -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
+            -H "Accept: application/json" \
+            "$issues_url")
+
+        # Check if the response is valid
+        if [[ -z "$full_issue" ]]; then
+            echo "Failed to fetch issue."
+            return 1
+        fi
+        print_issue "$full_issue"
+        actions=$transitions
+        #         if [ "$full_issue_children" != "-" ]; then
+        #             echo "adding subtasks"
+        #             actions+="
+        # null    null    Show subtasks"
+        #         fi
+        #         if [ "$full_issue_parent" != "-" ]; then
+        #             echo "adding parent"
+        #             actions+="
+        # null    null    Show parent"
+        #         fi
+        status=$(printf '%s\n' "${actions[@]}" | fzf --with-nth=3..)
+        status_id=$(echo "$status" | awk '{print $1}')
+        status_name=$(echo "$status" | awk -F '    ' '{print $3}')
+    fi
     if [ "$status_name" == "$full_issue_status" ]; then
         echo "No change"
         return 0

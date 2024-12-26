@@ -70,7 +70,7 @@ ticketforjira() {
 
         # Process the JSON with jq
         if [ "$full_issue_description" == "null" ]; then
-            formatted_text="No description available\n"
+            formatted_text="No description available"
         else
             formatted_text=$(echo "$full_issue_description" | jq -r '
             def process_node(content; indent):
@@ -117,7 +117,8 @@ ticketforjira() {
             printf "Children:\n$full_issue_children"
         fi
         printf "\n\033[1;31m\nDescription:\033[0m\n"
-        printf "$formatted_text"
+        printf "$formatted_text\n\n"
+        printf '%s\n' "-------------------------"
     }
     show_all=false
     only_list=false
@@ -405,18 +406,18 @@ ticketforjira() {
     # Append additional options to the actions list
     # substitute Closed/closed/CLOSED with Close issue
     transitions=$(echo "$transitions" | sed 's/Closed/Close issue/g' | sed 's/closed/Close issue/g' | sed 's/CLOSED/Close issue/g')
-    echo "full_issue_children: $full_issue_children"
     transitions+="
 null    null    Jump to branch
 null    null    Assign"
     actions=$transitions
-    if [ "$full_issue_children" != "-" ]; then
-        echo "adding subtasks"
+    full_issue_children=$(echo "$full_issue" | jq -r '.fields.subtasks[]')
+    full_issue_parent=$(echo "$full_issue" | jq -r '.fields.parent')
+    full_issue_key=$(echo "$full_issue" | jq -r '.key')
+    if [ "$full_issue_children" != "" ]; then
         actions+="
-null    null    Show subtasks"
+null    null    Show children"
     fi
-    if [ "$full_issue_parent" != "-" ]; then
-        echo "adding parent"
+    if [ "$full_issue_parent" != "null" ]; then
         actions+="
 null    null    Show parent"
     fi
@@ -436,7 +437,7 @@ null    null    Show parent"
     status_id=$(echo "$status" | awk '{print $1}')
     status_name=$(echo "$status" | awk -F '    ' '{print $3}')
 
-    if [ "$status_name" == "Show subtasks" ]; then
+    if [ "$status_name" == "Show children" ]; then
         # we filter the tickets for parent == full_issue_key, no need to curl as we already have the issues
         if [ "$only_current" = true ]; then
             # clean issues filtered for current sprint
@@ -481,15 +482,8 @@ null    null    Show parent"
             echo "No issue selected"
             return 0
         fi
-        echo "issuei: $issuei"
         issue_num=$(echo "$issuei" | awk '{$1=$1};1' | awk '{print $1}')
-        echo "issue_num: $issue_num"
-        full_issue_status=$(echo "$issuei" | awk -F '  ' '{print $10}')
-        echo "full_issue_status: $full_issue_status"
-        full_issue_children=$(echo "$issuei" | awk -F '  ' '{print $11}')
-        echo "full_issue_children: $full_issue_children"
-        #TODO: make func to print issue
-        echo -e "\n\033[1;31m\n###############################\033[0m\n"
+        echo -e "\n\033[0;36m\n############## Child ##############\033[0m\n"
         # print the issue, first we get the full issue
         issues_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num"
         full_issue=$(curl -s -X GET \
@@ -502,18 +496,33 @@ null    null    Show parent"
             echo "Failed to fetch issue."
             return 1
         fi
+        full_issue_status=$(echo "$full_issue" | jq -r '.fields.status.name')
         print_issue "$full_issue"
         actions=$transitions
-        #         if [ "$full_issue_children" != "-" ]; then
-        #             echo "adding subtasks"
-        #             actions+="
-        # null    null    Show subtasks"
-        #         fi
-        #         if [ "$full_issue_parent" != "-" ]; then
-        #             echo "adding parent"
-        #             actions+="
-        # null    null    Show parent"
-        #         fi
+        status=$(printf '%s\n' "${actions[@]}" | fzf --with-nth=3..)
+        status_id=$(echo "$status" | awk '{print $1}')
+        status_name=$(echo "$status" | awk -F '    ' '{print $3}')
+    fi
+    if [ "$status_name" == "Show parent" ]; then
+        parent_num=$(echo "$full_issue" | jq -r '.fields.parent.id')
+        issuei=$(echo "$issues_response" | jq -r '.issues[] | select(.id == "'$parent_num'") | "\(.id)\t\(.key)\t\(.fields.summary)\t\(.fields.status.name)\t\(.fields.assignee.displayName)\t\(.fields.created)\t\(.fields.issuetype.name)\t\(.fields.labels)\t\(.fields.parent.key)"')
+        issue_num=$(echo "$issuei" | awk '{$1=$1};1' | awk '{print $1}')
+        echo -e "\n\033[0;36m\n############## Parent ##############\033[0m\n"
+        # print the issue, first we get the full issue
+        issues_url="https://${repo_owner}.atlassian.net/rest/api/3/issue/$issue_num"
+        full_issue=$(curl -s -X GET \
+            -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
+            -H "Accept: application/json" \
+            "$issues_url")
+
+        # Check if the response is valid
+        if [[ -z "$full_issue" ]]; then
+            echo "Failed to fetch issue."
+            return 1
+        fi
+        full_issue_status=$(echo "$full_issue" | jq -r '.fields.status.name')
+        print_issue "$full_issue"
+        actions=$transitions
         status=$(printf '%s\n' "${actions[@]}" | fzf --with-nth=3..)
         status_id=$(echo "$status" | awk '{print $1}')
         status_name=$(echo "$status" | awk -F '    ' '{print $3}')
@@ -601,7 +610,6 @@ null    null    Show parent"
         fi
     fi
 
-    # ----------------------good to here
     if [ -z "$status_name" ]; then
         echo "No status selected"
         return 0

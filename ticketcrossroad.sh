@@ -15,10 +15,11 @@ ticketcrossroad() {
         # check if the repo has a github project
 
         # get the repo owner
-        gh_name=$(git remote get-url origin | sed -e 's/.*github.com\///' -e 's/\/.*//')
+        complete_remote=$(git remote get-url origin)
+        gh_name=$(echo "$complete_remote" | sed -e 's/.*github.com\///' -e 's/\/.*//')
         gh_name=${gh_name#*:}
-        # get the repo name from path
-        repo_name=$(basename $(git rev-parse --show-toplevel))
+        # get the repo name from origin
+        repo_name=$(echo "$complete_remote" | sed -e 's/.*github.com\/.*\///' -e 's/.*\///' -e 's/\.git//')
 
         repo_id="$(gh api graphql -f ownerrepo="$gh_name" -f reponame="$repo_name" -f query='
     query($ownerrepo: String!, $reponame: String!) {

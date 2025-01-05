@@ -200,14 +200,18 @@ ticketforjira() {
     # get the repo owner
     gh_name=$(git remote get-url origin | sed -e 's/.*github.com\///' -e 's/\/.*//')
     gh_name=${gh_name#*:}
+    # to lower case
+    gh_name=${gh_name,,}
     # get the name up to the first dash
     repo_owner=${gh_name%%-*}
+    repo_owner=${repo_owner,,}
     # get the repo name from path
     repo_name=$(basename $(git rev-parse --show-toplevel))
     # WARN: this is a hack, we should get the prefix from the issue? Maybe the labels?
     # repo name should start with AI but doesn't, lets pretend it does
     # repo_name="AI-$repo_name"
     project_name=${repo_name%%-*}
+    project_name=${project_name,,}
 
     rpojects_url="https://${repo_owner}.atlassian.net/rest/api/3/project/search"
     # Fetch project overview

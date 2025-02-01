@@ -56,6 +56,13 @@ ticketforjira() {
         # print step by step
         full_issue_key=$(echo "$full_issue" | jq -r '.key')
         full_issue_summary=$(echo "$full_issue" | jq -r '.fields.summary')
+        full_issue_story_points=$(echo "$full_issue" | jq -r '
+  if .fields.customfield_10016 != null then
+    (.fields.customfield_10016 | floor)
+  else
+    "-"
+  end
+')
         full_issue_status=$(echo "$full_issue" | jq -r '.fields.status.name')
         full_issue_assignee=$(echo "$full_issue" | jq -r '.fields.assignee.displayName // "-"')
         full_issue_created=$(echo "$full_issue" | jq -r '.fields.created')
@@ -64,7 +71,13 @@ ticketforjira() {
         full_issue_labels=$(echo "$full_issue" | jq -r '.fields.labels[]' | tr '\n' ' ')
         full_issue_parent=$(echo "$full_issue" | jq -r 'if .fields.parent == null then
     "-"
-  else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(.fields.parent.fields.status.name)" end')
+else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
+  if .fields.parent.customfield_10016 != null then
+    (.fields.parent.customfield_10016 | floor)
+  else
+    "-"
+  end
+)\t\(.fields.parent.fields.status.name)" end')
         full_issue_description=$(echo "$full_issue" | jq -r '.fields.description')
         full_issue_children=$(echo "$full_issue" | jq -r '.fields.subtasks[] | "\(.key)\t\(.fields.summary)\t\(.fields.status.name)"')
 
@@ -105,6 +118,7 @@ ticketforjira() {
         fi
         # Output the formatted text
         printf "\033[1;31m$full_issue_key\033[0m - $full_issue_summary\n"
+        printf "\33[1mStorypoints: $full_issue_story_points\n\33[0m"
         printf "\33[1m\nStatus: $full_issue_status\n\n\33[0m"
         printf '%s\n' "Created: $full_issue_created"
         printf '%s\n' "Assignee: $full_issue_assignee"
@@ -300,7 +314,7 @@ ticketforjira() {
     issues_url="https://${repo_owner}.atlassian.net/rest/agile/1.0/board/$board_id/issue"
     # WARN: hardcoded maxResults
     maxResults=500
-    fields="id,key,summary,status,assignee,created,issuetype,labels,parent,sprint"
+    fields="id,key,summary,status,assignee,created,issuetype,labels,parent,sprint,customfield_10016"
     issues_response=$(curl -s -X GET \
         -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
@@ -323,15 +337,27 @@ ticketforjira() {
     # now we need to get the fields we want
     if [ "$only_current" = true ]; then
         # clean issues filtered for current sprint
-        clean_issues=$(echo "$issues_response" | jq -r '.issues[] | select(.fields.sprint != null) | "\(.id)\t\(.key)\t\(.fields.summary)\t\(.fields.status.name)\t\(.fields.assignee.displayName)\t\(.fields.created)\t\(.fields.issuetype.name)\t\(.fields.labels)\t\(.fields.parent.key)"')
+        clean_issues=$(echo "$issues_response" | jq -r '.issues[] | select(.fields.sprint != null) | "\(.id)\t\(.key)\t\((.fields.summary))\t\(
+      if .fields.customfield_10016 != null then
+        (.fields.customfield_10016 | floor)
+      else
+        "null"
+      end
+    )\t\(.fields.status.name)\t\(.fields.assignee.displayName)\t\(.fields.created)\t\(.fields.issuetype.name)\t\(.fields.labels)\t\(.fields.parent.key)"')
     else
-        clean_issues=$(echo "$issues_response" | jq -r '.issues[] | "\(.id)\t\(.key)\t\(.fields.summary)\t\(.fields.status.name)\t\(.fields.assignee.displayName)\t\(.fields.created)\t\(.fields.issuetype.name)\t\(.fields.labels)\t\(.fields.parent.key)"')
+        clean_issues=$(echo "$issues_response" | jq -r '.issues[] | "\(.id)\t\(.key)\t\(.fields.summary)\t\(
+      if .fields.customfield_10016 != null then
+        (.fields.customfield_10016 | floor)
+      else
+        "null"
+      end
+    )\t\(.fields.status.name)\t\(.fields.assignee.displayName)\t\(.fields.created)\t\(.fields.issuetype.name)\t\(.fields.labels)\t\(.fields.parent.key)"')
     fi
     # clean up the missing fields
     clean_issues=$(echo "$clean_issues" | sed 's`\[\]`-`g' | sed 's`null`-`g' | sed 's`\[``g' | sed 's`\]``g')
     # format the date
     clean_issues=$(echo "$clean_issues" | sed -E 's`(.*)[0-9]{2}([0-9]{2}-[0-9]{2}-[0-9]{2})T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}[\+-]{1}[0-9]{4}(.*)`\1\2\3`')
-    header="Id"$'\t'"Key"$'\t'"Summary"$'\t'"Status"$'\t'"Assignee"$'\t'"Created"$'\t'"Issue Type"$'\t'"Labels"$'\t'"Parent"
+    header="Id"$'\t'"Key"$'\t'"Summary"$'\t'"SP"$'\t'"Status"$'\t'"Assignee"$'\t'"Created"$'\t'"Issue Type"$'\t'"Labels"$'\t'"Parent"
     # add the header
     clean_issues="$header
     $clean_issues"
@@ -356,9 +382,9 @@ ticketforjira() {
     # if only listing, print and exit
     if [ "$only_list" = true ]; then
         if [ "$show_all" = true ]; then
-            printf '%s\n' "${formatted_issues[@]}" | awk -F '\t' '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7}' | sort -t '\t' -k 2 -r | column -s$'\t' -t
+            printf '%s\n' "${formatted_issues[@]}" | awk -F '\t' '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8}' | sort -t '\t' -k 2 -r | column -s$'\t' -t
         else
-            printf '%s\n' "${formatted_issues[@]}" | awk -F '\t' '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7}' | sort -t '\t' -k 2 -r | awk -F '\t' '$3 != "Done" && $3 != "done"' | column -s$'\t' -t
+            printf '%s\n' "${formatted_issues[@]}" | awk -F '\t' '{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8}' | sort -t '\t' -k 2 -r | awk -F '\t' '$4 != "Done" && $4 != "done"' | column -s$'\t' -t
         fi
         return 0
     fi
@@ -367,7 +393,7 @@ ticketforjira() {
         issuei="$(printf '%s\n' "$formatted_issues" | tail -n +2 | sort -t '\t' -k 3 -r | column -s$'\t' -t | fzf --header="$input_header" --with-nth=2..)"
     else
         # TODO: make this more robust
-        issuei="$(printf '%s\n' "${formatted_issues[@]}" | tail -n +2 | sort -t '\t' -k 2 -r | awk -F '\t' '$4 != "Done" && $4 != "done" && $4 != "Closed" && $4 != "closed"' | column -s$'\t' -t | fzf --header="$input_header" --with-nth=2..)"
+        issuei="$(printf '%s\n' "${formatted_issues[@]}" | tail -n +2 | sort -t '\t' -k 2 -r | awk -F '\t' '$5 != "Done" && $5 != "done" && $5 != "Closed" && $5 != "closed"' | column -s$'\t' -t | fzf --header="$input_header" --with-nth=2..)"
     fi
     if [ -z "$issuei" ]; then
         echo "No issue selected"

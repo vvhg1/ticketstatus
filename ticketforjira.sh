@@ -20,9 +20,9 @@ ticketforjira() {
                 yn='Y'
             fi
             case "$yn" in
-            [Yy]) return 0 ;;
-            [Nn]) return 1 ;;
-            *) echo -n "Not a valid option. Please enter y or n: " ;;
+                [Yy]) return 0 ;;
+                [Nn]) return 1 ;;
+                *) echo -n "Not a valid option. Please enter y or n: " ;;
             esac
         done
     }
@@ -138,68 +138,68 @@ else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
     only_list=false
     for arg in "$@"; do
         case $arg in
-        -h | --help)
-            show_help
-            return 0
-            ;;
-        -a | --all)
-            show_all=true
-            ;;
-        -l | --list)
-            only_list=true
-            ;;
-        -c | --current)
-            only_current=true
-            ;;
-        -o | --options)
-            all_options=true
-            ;;
-        -la | -al)
-            show_all=true
-            only_list=true
-            ;;
-        -lc | -cl)
-            only_current=true
-            only_list=true
-            ;;
-        -lac | -cla | -lca | -cal | -acl | -alc)
-            show_all=true
-            only_current=true
-            only_list=true
-            ;;
-        -lo | -ol)
-            only_list=true
-            all_options=true
-            ;;
-        -lco | -loc | -clo | -col | -ocl | -olc)
-            only_current=true
-            only_list=true
-            all_options=true
-            ;;
-        -ao | -oa)
-            show_all=true
-            all_options=true
-            ;;
-        -aoc | -aco | -oac | -oca | -cao | -coa)
-            show_all=true
-            only_current=true
-            all_options=true
-            ;;
-        -lao | -loa | -alo | -aol | -ola | -oal)
-            show_all=true
-            only_list=true
-            all_options=true
-            ;;
-        -laco | -laoc | -loac | -loca | -lcao | -lcoa | -alco | -aloc | -aclo | -acol | -aocl | -aolc | -olac | -olca | -oalc | -oacl | -ocal | -ocla)
-            show_all=true
-            only_current=true
-            only_list=true
-            all_options=true
-            ;;
-        *)
-            echo "Invalid flag $arg"
-            return 1
-            ;;
+            -h | --help)
+                show_help
+                return 0
+                ;;
+            -a | --all)
+                show_all=true
+                ;;
+            -l | --list)
+                only_list=true
+                ;;
+            -c | --current)
+                only_current=true
+                ;;
+            -o | --options)
+                all_options=true
+                ;;
+            -la | -al)
+                show_all=true
+                only_list=true
+                ;;
+            -lc | -cl)
+                only_current=true
+                only_list=true
+                ;;
+            -lac | -cla | -lca | -cal | -acl | -alc)
+                show_all=true
+                only_current=true
+                only_list=true
+                ;;
+            -lo | -ol)
+                only_list=true
+                all_options=true
+                ;;
+            -lco | -loc | -clo | -col | -ocl | -olc)
+                only_current=true
+                only_list=true
+                all_options=true
+                ;;
+            -ao | -oa)
+                show_all=true
+                all_options=true
+                ;;
+            -aoc | -aco | -oac | -oca | -cao | -coa)
+                show_all=true
+                only_current=true
+                all_options=true
+                ;;
+            -lao | -loa | -alo | -aol | -ola | -oal)
+                show_all=true
+                only_list=true
+                all_options=true
+                ;;
+            -laco | -laoc | -loac | -loca | -lcao | -lcoa | -alco | -aloc | -aclo | -acol | -aocl | -aolc | -olac | -olca | -oalc | -oacl | -ocal | -ocla)
+                show_all=true
+                only_current=true
+                only_list=true
+                all_options=true
+                ;;
+            *)
+                echo "Invalid flag $arg"
+                return 1
+                ;;
         esac
     done
 
@@ -210,7 +210,21 @@ else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
     fi
     jira_email=$(git config user.email)
     # api token
-    jira_api_token=$(pass jiraapi)
+    if [ -z "$jira_email" ]; then
+        echo "git email not set, please set it with: git config --global user.email 'your@email.com'"
+        return 1
+    fi
+    # api token
+    jira_api_token=$JIRA_API_TOKEN
+    if [ "$jira_api_token" == "" ]; then
+        if command -v pass &>/dev/null; then
+            jira_api_token=$(pass jiraapi)
+            # try to read token from env
+        else
+            echo "neither pass nor JIRA_API_TOKEN is set, please set the jira_api_token environment variable or install pass and add the jiraapi password"
+            return 1
+        fi
+    fi
     # get the repo owner
     gh_name=$(git remote get-url origin | sed -e 's/.*github.com\///' -e 's/\/.*//')
     gh_name=${gh_name#*:}

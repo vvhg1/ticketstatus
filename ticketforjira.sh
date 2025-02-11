@@ -598,7 +598,7 @@ null    null    Show parent"
         branches="$(echo "$branches" | sed 's/^/  /')"
         branch_name="$(echo "$branches" | grep -i $full_issue_key)"
         if [ -z "$branch_name" ]; then
-            echo "No branch $branch_name found"
+            echo "No branch $full_issue_key found"
             return 0
         fi
         # if $branch_name has multiple lines

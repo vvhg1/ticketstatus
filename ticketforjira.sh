@@ -327,7 +327,7 @@ else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
     # get the issues
     issues_url="https://${repo_owner}.atlassian.net/rest/agile/1.0/board/$board_id/issue"
     # WARN: hardcoded maxResults
-    maxResults=500
+    maxResults=800
     fields="id,key,summary,status,assignee,created,issuetype,labels,parent,sprint,customfield_10016"
     issues_response=$(curl -s -X GET \
         -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
@@ -669,16 +669,24 @@ null    null    Show parent"
         # remove all non-alphanumeric characters
         branch_name=${branch_name//[^a-zA-Z0-9-]/}
         # check if feature hotfix bugfix or test are in the labels
+        full_issue_issuetype=$(echo "$full_issue" | jq -r '.fields.issuetype.name')
+        branch_type=""
+        # priority is: hotfix > bugfix > test > feature
+        # labels are more important than issue type
+        if [ "$(echo "$full_issue_issuetype" | grep -i "task")" != "" ] || [ "$(echo "$full_issue_issuetype" | grep -i "subtask")" != "" ] || [ "$(echo "$full_issue_issuetype" | grep -i "epic")" != "" ]; then
+            branch_type="feature/"
+        fi
+        if [ "$(echo "$full_issue_labels" | grep -i "test")" != "" ]; then
+            branch_type="test/"
+        fi
         if [ "$(echo "$full_issue_labels" | grep -i "feature")" != "" ]; then
             branch_type="feature/"
-        elif [ "$(echo "$full_issue_labels" | grep -i "hotfix")" != "" ]; then
-            branch_type="hotfix/"
-        elif [ "$(echo "$full_issue_labels" | grep -i "bugfix")" != "" ]; then
+        fi
+        if [ "$(echo "$full_issue_labels" | grep -i "bugfix")" != "" ] || [ "$(echo "$full_issue_issuetype" | grep -i "bug")" != "" ]; then
             branch_type="bugfix/"
-        elif [ "$(echo "$full_issue_labels" | grep -i "test")" != "" ]; then
-            branch_type="test/"
-        else
-            branch_type=""
+        fi
+        if [ "$(echo "$full_issue_labels" | grep -i "hotfix")" != "" ]; then
+            branch_type="hotfix/"
         fi
 
         # add the prefix

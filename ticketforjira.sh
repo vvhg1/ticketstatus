@@ -671,16 +671,19 @@ null    null    Show parent"
         # check if feature hotfix bugfix or test are in the labels
         full_issue_issuetype=$(echo "$full_issue" | jq -r '.fields.issuetype.name')
         branch_type=""
-        # priority is: hotfix > bugfix > test > feature
+        # priority is: hotfix > bugfix > test > feature > spike
         # labels are more important than issue type
         if [ "$(echo "$full_issue_issuetype" | grep -i "task")" != "" ] || [ "$(echo "$full_issue_issuetype" | grep -i "subtask")" != "" ] || [ "$(echo "$full_issue_issuetype" | grep -i "epic")" != "" ]; then
             branch_type="feature/"
         fi
-        if [ "$(echo "$full_issue_labels" | grep -i "test")" != "" ]; then
-            branch_type="test/"
+        if [ "$(echo "$full_issue_issuetype" | grep -i "spike")" != "" ]; then
+            branch_type="spike/"
         fi
         if [ "$(echo "$full_issue_labels" | grep -i "feature")" != "" ]; then
             branch_type="feature/"
+        fi
+        if [ "$(echo "$full_issue_labels" | grep -i "test")" != "" ]; then
+            branch_type="test/"
         fi
         if [ "$(echo "$full_issue_labels" | grep -i "bugfix")" != "" ] || [ "$(echo "$full_issue_issuetype" | grep -i "bug")" != "" ]; then
             branch_type="bugfix/"

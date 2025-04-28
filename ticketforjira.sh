@@ -241,12 +241,12 @@ else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
     project_name=${repo_name%%-*}
     project_name=${project_name,,}
 
-    rpojects_url="https://${repo_owner}.atlassian.net/rest/api/3/project/search"
+    projects_url="https://${repo_owner}.atlassian.net/rest/api/3/project/search"
     # Fetch project overview
     response=$(curl -s -X GET \
         -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
-        "$rpojects_url")
+        "$projects_url")
 
     # echo "response: $response"
     # Check if the response is valid
@@ -254,8 +254,6 @@ else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
         echo "Failed to fetch project data."
         return 1
     fi
-
-    values=$(echo "$response" | jq -r '.values')
 
     keys=$(echo "$response" | jq -r '.values[] | .key')
 
@@ -292,22 +290,6 @@ else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
 
     board_id=$(echo "$bresponse" | jq -r '.values[] | select(.location.projectId == '$project_id') | .id')
 
-    # get the board columns
-    columns_urL="https://${repo_owner}.atlassian.net/rest/agile/1.0/board/$board_id/configuration"
-    columns_response=$(curl -s -X GET \
-        -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
-        -H "Accept: application/json" \
-        "$columns_urL")
-
-    # Check if the response is valid
-    if [[ -z "$columns_response" ]]; then
-        echo "Failed to fetch columns."
-        return 1
-    fi
-
-    columns_names=$(echo "$columns_response" | jq -r '.columnConfig.columns[] | .name')
-    columns_ids=$(echo "$columns_response" | jq -r '.columnConfig.columns[] | .statuses[0].id')
-
     # get the people on the project
     people_url="https://${repo_owner}.atlassian.net/rest/api/3/user/assignable/search?project=$project_id&startAt=0&maxResults=50"
     people_response=$(curl -s -X GET \
@@ -329,10 +311,16 @@ else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
     # WARN: hardcoded maxResults
     maxResults=800
     fields="id,key,summary,status,assignee,created,issuetype,labels,parent,sprint,customfield_10016"
+    # only not closed or done if not show_all
+    if [ "$show_all" = false ]; then
+        jql="status%20not%20in%20(Done%2C%20Closed)"
+    else
+        jql=""
+    fi
     issues_response=$(curl -s -X GET \
         -H "Authorization: Basic $(echo -n "$jira_email:$jira_api_token" | base64)" \
         -H "Accept: application/json" \
-        "$issues_url?startAt=0&maxResults=$maxResults&fields=$fields")
+        "$issues_url?startAt=0&maxResults=$maxResults&fields=$fields&jql=$jql")
 
     # Check if the response is valid
     if [[ -z "$issues_response" ]]; then

@@ -154,6 +154,10 @@ else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
             -o | --options)
                 all_options=true
                 ;;
+            -ac | -ca)
+                show_all=true
+                only_current=true
+                ;;
             -la | -al)
                 show_all=true
                 only_list=true
@@ -161,6 +165,10 @@ else "\(.fields.parent.key)\t\(.fields.parent.fields.summary)\t\(
             -lc | -cl)
                 only_current=true
                 only_list=true
+                ;;
+            -co | -oc)
+                only_current=true
+                all_options=true
                 ;;
             -lac | -cla | -lca | -cal | -acl | -alc)
                 show_all=true

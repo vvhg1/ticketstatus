@@ -38,7 +38,7 @@ ticketforjira() {
         echo "-h, --help: Show help"
         echo ""
         echo "-a, --all: Show all tickets, otherwise don't show done tickets"
-        ehco ""
+        echo ""
         echo "-l, --list: List all tickets in the current project"
         echo ""
         echo "-o, --options: Show all status options"
